@@ -127,7 +127,7 @@ def main():
     app.add_handler(CommandHandler("login", login_with_device))
     app.add_handler(CommandHandler("menu", menu))
     app.add_handler(CommandHandler("manual", add_rp))
-    app.add_handler(CommandHandler("key", validate_key))
+    app.add_handler(CommandHandler("key", set_key))  # Handler key
     app.add_handler(CallbackQueryHandler(button))
     
     print("Bot is running...")
