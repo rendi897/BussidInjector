@@ -57,11 +57,39 @@ def loop_2jt_per_detik(session_ticket):
         time.sleep(1)
     print("Loop dihentikan.")
 
-async def menu(update: Update, context: CallbackContext):
-    if 'key_valid' not in context.user_data or not context.user_data['key_valid']:
-        await update.message.reply_text("Anda perlu memasukkan key yang valid. Gunakan /key <key> untuk memasukkan key.")
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("Selamat datang di BUSSID Inject Bot! Kirim /login <device_id> untuk login.")
+
+async def login(update: Update, context: CallbackContext):
+    args = update.message.text.split()[1:]
+    if len(args) != 1:
+        await update.message.reply_text("Gunakan format: /login <device_id>")
         return
     
+    device_id = args[0]
+    session_ticket = login_with_device(device_id)
+
+    if session_ticket:
+        context.user_data['session_ticket'] = session_ticket
+        await update.message.reply_text("Login berhasil! Gunakan /menu untuk melihat pilihan inject UB.")
+    else:
+        await update.message.reply_text("Login gagal. Coba lagi dengan Device ID yang benar.")
+
+async def set_key(update: Update, context: CallbackContext):
+    args = update.message.text.split()[1:]
+    if len(args) != 1:
+        await update.message.reply_text("Gunakan format: /key <key>")
+        return
+
+    key = args[0]
+    if validate_key(key):
+        context.user_data['key_valid'] = True
+        await update.message.reply_text("Key valid! Sekarang Anda dapat mengakses menu Loop 2jt dan Manual Input.")
+    else:
+        context.user_data['key_valid'] = False
+        await update.message.reply_text("Key tidak valid! Coba lagi dengan key yang benar.")
+
+async def menu(update: Update, context: CallbackContext):
     keyboard = [
         [InlineKeyboardButton("500k UB", callback_data='1')],
         [InlineKeyboardButton("800k UB", callback_data='2')],
@@ -79,7 +107,12 @@ async def menu(update: Update, context: CallbackContext):
 async def button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-
+    
+    if query.data == "9":
+        stop_loop_event.set()
+        await query.edit_message_text("Loop 2jt UB per detik dihentikan!")
+        return
+    
     ub_values = {
         "1": (500000, "500k UB"),
         "2": (800000, "800k UB"),
@@ -87,29 +120,15 @@ async def button(update: Update, context: CallbackContext):
         "4": (-50000000, "Kurangi 50jt UB"),
         "5": (-200000000, "Kurangi 200jt UB")
     }
-
+    
     if query.data in ub_values:
         rp_value, label = ub_values[query.data]
         result = add_rp(context.user_data.get('session_ticket', ''), rp_value, label)
         await query.edit_message_text(result)
-    elif query.data == "6":
-        await query.edit_message_text("Gunakan perintah /manual <jumlah> untuk input manual (VIP).")
-    elif query.data == "7":
-        session_ticket = context.user_data.get('session_ticket', '')
-        if session_ticket:
-            stop_loop_event.clear()
-            threading.Thread(target=loop_2jt_per_detik, args=(session_ticket,)).start()
-            await query.edit_message_text("Loop 2jt UB per detik dimulai!")
-        else:
-            await query.edit_message_text("Anda belum login. Gunakan /login <device_id> untuk login terlebih dahulu.")
     elif query.data == "8":
+        stop_loop_event.set()
         context.user_data.clear()
         await query.edit_message_text("Anda telah keluar. Silakan login kembali jika ingin menggunakan bot.")
-    elif query.data == "9":
-        stop_loop_event.set()
-        await query.edit_message_text("Loop 2jt UB per detik dihentikan!")
-    else:
-        await query.edit_message_text("Pilihan tidak valid.")
 
 flask_app = Flask(__name__)
 
@@ -123,16 +142,17 @@ def run_flask():
 def main():
     app = Application.builder().token(TOKEN).build()
     
-    app.add_handler(CommandHandler("start", menu))
-    app.add_handler(CommandHandler("login", login_with_device))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("login", login))
     app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CommandHandler("manual", add_rp))
-    app.add_handler(CommandHandler("key", set_key))  # Handler key
+    app.add_handler(CommandHandler("key", set_key))
     app.add_handler(CallbackQueryHandler(button))
     
     print("Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
-    Thread(target=run_flask).start()
+    flask_thread = Thread(target=run_flask, daemon=True)
+    flask_thread.start()
     main()
+    
