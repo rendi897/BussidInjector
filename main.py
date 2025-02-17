@@ -1,3 +1,5 @@
+import threading
+import time
 from threading import Thread
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -5,9 +7,11 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Call
 import requests
 import json
 import os
-import time
 
 TOKEN = "8195321637:AAEQEZPwf25f6LLRm0zA3GX6jjmTVWePvKs"
+
+# Flag untuk menghentikan loop
+stop_loop = False
 
 # Fungsi untuk validasi key
 def validate_key(key):
@@ -55,6 +59,11 @@ def add_rp(session_ticket, value, label):
 
 # Fungsi untuk menampilkan menu inline button
 async def menu(update: Update, context: CallbackContext):
+    # Memeriksa apakah pengguna memiliki key yang valid
+    if 'key_valid' not in context.user_data or not context.user_data['key_valid']:
+        await update.message.reply_text("Anda perlu memasukkan key yang valid untuk mengakses menu ini. Gunakan /key <key> untuk memasukkan key.")
+        return
+    
     keyboard = [
         [InlineKeyboardButton("500k UB", callback_data='1')],
         [InlineKeyboardButton("800k UB", callback_data='2')],
@@ -63,6 +72,7 @@ async def menu(update: Update, context: CallbackContext):
         [InlineKeyboardButton("Kurangi 200jt UB", callback_data='5')],
         [InlineKeyboardButton("Manual Input (VIP)", callback_data='6')],
         [InlineKeyboardButton("Loop 2jt UB per detik (VIP)", callback_data='7')],
+        [InlineKeyboardButton("Stop Loop", callback_data='9')],
         [InlineKeyboardButton("Keluar", callback_data='8')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -88,11 +98,31 @@ async def button(update: Update, context: CallbackContext):
     elif query.data == "6":
         await query.edit_message_text("Gunakan perintah /manual <jumlah> untuk input manual (VIP).")
     elif query.data == "7":
-        await query.edit_message_text("Loop 2jt UB per detik belum didukung di bot ini.")
+        # Menjalankan loop di thread terpisah
+        session_ticket = context.user_data.get('session_ticket', '')
+        if session_ticket:
+            global stop_loop
+            stop_loop = False  # Set flag to False when starting the loop
+            threading.Thread(target=loop_2jt_per_detik, args=(session_ticket,)).start()
+            await query.edit_message_text("Loop 2jt UB per detik dimulai!")
+        else:
+            await query.edit_message_text("Anda belum login. Gunakan /login <device_id> untuk login terlebih dahulu.")
     elif query.data == "8":
         await query.edit_message_text("Keluar dari program.")
+    elif query.data == "9":
+        global stop_loop
+        stop_loop = True  # Menghentikan loop dengan mengubah flag
+        await query.edit_message_text("Loop 2jt UB per detik dihentikan!")
     else:
         await query.edit_message_text("Pilihan tidak valid.")
+
+# Fungsi untuk loop 2jt UB per detik
+def loop_2jt_per_detik(session_ticket):
+    while not stop_loop:
+        result = add_rp(session_ticket, 2000000, "2jt UB")
+        print(result)
+        time.sleep(1)
+    print("Loop dihentikan.")
 
 # Fungsi perintah /start
 async def start(update: Update, context: CallbackContext):
@@ -114,17 +144,49 @@ async def login(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text("Login gagal. Coba lagi dengan Device ID yang benar.")
 
-# Konfigurasi bot Telegram
-def main():
-    app = Application.builder().token(TOKEN).build()
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("login", login))
-    app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CallbackQueryHandler(button))
-    
-    print("Bot is running...")
-    app.run_polling()
+# Fungsi perintah /manual untuk input jumlah UB secara manual
+async def manual_input(update: Update, context: CallbackContext):
+    # Memeriksa apakah ada argumen jumlah yang diberikan
+    args = update.message.text.split()[1:]
+    if len(args) != 1:
+        await update.message.reply_text("Gunakan format: /manual <jumlah>")
+        return
+
+    try:
+        # Mengambil jumlah dari input pengguna
+        amount = int(args[0])
+        result = add_rp(context.user_data.get('session_ticket', ''), amount, f"{amount} UB")
+        await update.message.reply_text(result)
+    except ValueError:
+        await update.message.reply_text("Jumlah yang dimasukkan tidak valid. Harap masukkan angka.")
+
+# Fungsi untuk mengatur key pengguna
+async def set_key(update: Update, context: CallbackContext):
+    args = update.message.text.split()[1:]
+    if len(args) != 1:
+        await update.message.reply_text("Gunakan format: /key <key>")
+        return
+
+    key = args[0]
+    if validate_key(key):
+        context.user_data['key_valid'] = True
+        await update.message.reply_text("Key valid! Sekarang Anda dapat mengakses menu Loop 2jt dan Manual Input.")
+    else:
+        context.user_data['key_valid'] = False
+        await update.message.reply_text("Key tidak valid! Coba lagi dengan key yang benar.")
+
+# Fungsi perintah /help
+async def help_command(update: Update, context: CallbackContext):
+    help_text = (
+        "Berikut adalah perintah yang tersedia:\n"
+        "/start - Memulai bot\n"
+        "/login <device_id> - Untuk login dengan Device ID\n"
+        "/menu - Menampilkan menu inject UB\n"
+        "/manual <jumlah> - Untuk input jumlah UB secara manual\n"
+        "/key <key> - Masukkan key yang valid untuk mengakses menu Loop 2jt dan Manual Input\n"
+        "/help - Menampilkan bantuan ini"
+    )
+    await update.message.reply_text(help_text)
 
 # Flask untuk Health Check
 flask_app = Flask(__name__)
@@ -136,6 +198,21 @@ def health_check():
 def run_flask():
     flask_app.run(host="0.0.0.0", port=8080)
 
+def main():
+    app = Application.builder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("login", login))
+    app.add_handler(CommandHandler("menu", menu))
+    app.add_handler(CommandHandler("manual", manual_input))  # Handler manual
+    app.add_handler(CommandHandler("key", set_key))  # Handler key
+    app.add_handler(CommandHandler("help", help_command))  # Handler help
+    app.add_handler(CallbackQueryHandler(button))
+    
+    print("Bot is running...")
+    app.run_polling()
+
+# Menjalankan Flask untuk Health Check
 if __name__ == "__main__":
     Thread(target=run_flask).start()
     main()
