@@ -11,7 +11,7 @@ import os
 TOKEN = "8195321637:AAEQEZPwf25f6LLRm0zA3GX6jjmTVWePvKs"
 
 # Flag untuk menghentikan loop
-stop_loop = False
+stop_loop_event = threading.Event()  # Using an event instead of a global variable
 
 # Fungsi untuk validasi key
 def validate_key(key):
@@ -101,8 +101,7 @@ async def button(update: Update, context: CallbackContext):
         # Menjalankan loop di thread terpisah
         session_ticket = context.user_data.get('session_ticket', '')
         if session_ticket:
-            global stop_loop
-            stop_loop = False  # Set flag to False when starting the loop
+            stop_loop_event.clear()  # Reset event when starting the loop
             threading.Thread(target=loop_2jt_per_detik, args=(session_ticket,)).start()
             await query.edit_message_text("Loop 2jt UB per detik dimulai!")
         else:
@@ -110,15 +109,14 @@ async def button(update: Update, context: CallbackContext):
     elif query.data == "8":
         await query.edit_message_text("Keluar dari program.")
     elif query.data == "9":
-        global stop_loop
-        stop_loop = True  # Menghentikan loop dengan mengubah flag
+        stop_loop_event.set()  # Set the event to stop the loop
         await query.edit_message_text("Loop 2jt UB per detik dihentikan!")
     else:
         await query.edit_message_text("Pilihan tidak valid.")
 
 # Fungsi untuk loop 2jt UB per detik
 def loop_2jt_per_detik(session_ticket):
-    while not stop_loop:
+    while not stop_loop_event.is_set():  # Use the event to stop the loop
         result = add_rp(session_ticket, 2000000, "2jt UB")
         print(result)
         time.sleep(1)
