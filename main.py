@@ -1,3 +1,5 @@
+from threading import Thread
+from flask import Flask
 from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext
 import requests
@@ -90,6 +92,17 @@ def main():
     print("Bot is running...")
     app.run_polling()
 
+# Flask untuk Health Check
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def health_check():
+    return "OK", 200
+
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=8080)
+
 if __name__ == "__main__":
+    Thread(target=run_flask).start()
     main()
     
