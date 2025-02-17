@@ -8,12 +8,10 @@ import requests
 import json
 import os
 
-TOKEN = "8195321637:AAEQEZPwf25f6LLRm0zA3GX6jjmTVWePvKs"
+TOKEN = "YOUR_BOT_TOKEN"
 
-# Flag untuk menghentikan loop
-stop_loop_event = threading.Event()  # Using an event instead of a global variable
+stop_loop_event = threading.Event()
 
-# Fungsi untuk validasi key
 def validate_key(key):
     url = "https://viperrengg.serv00.net/BUSSID/backend/validate.php"
     payload = {"key": key}
@@ -21,7 +19,6 @@ def validate_key(key):
     response = requests.post(url, json=payload, headers=headers)
     return response.json().get("valid", False)
 
-# Fungsi untuk login dengan Device ID
 def login_with_device(device_id):
     url = "https://4ae9.playfabapi.com/Client/LoginWithAndroidDeviceID"
     payload = {
@@ -38,7 +35,6 @@ def login_with_device(device_id):
         return response_data['data']['SessionTicket']
     return None
 
-# Fungsi untuk menambahkan UB
 def add_rp(session_ticket, value, label):
     url = "https://4ae9.playfabapi.com/Client/ExecuteCloudScript"
     payload = {
@@ -52,16 +48,11 @@ def add_rp(session_ticket, value, label):
         'X-Authorization': session_ticket
     }
     response = requests.post(url, json=payload, headers=headers)
-    
-    if response.status_code == 200:
-        return f"Inject {label} berhasil!"
-    return "Inject gagal, coba lagi nanti."
+    return "Inject {label} berhasil!" if response.status_code == 200 else "Inject gagal, coba lagi nanti."
 
-# Fungsi untuk menampilkan menu inline button
 async def menu(update: Update, context: CallbackContext):
-    # Memeriksa apakah pengguna memiliki key yang valid
     if 'key_valid' not in context.user_data or not context.user_data['key_valid']:
-        await update.message.reply_text("Anda perlu memasukkan key yang valid untuk mengakses menu ini. Gunakan /key <key> untuk memasukkan key.")
+        await update.message.reply_text("Anda perlu memasukkan key yang valid. Gunakan /key <key> untuk memasukkan key.")
         return
     
     keyboard = [
@@ -70,15 +61,11 @@ async def menu(update: Update, context: CallbackContext):
         [InlineKeyboardButton("1jt UB", callback_data='3')],
         [InlineKeyboardButton("Kurangi 50jt UB", callback_data='4')],
         [InlineKeyboardButton("Kurangi 200jt UB", callback_data='5')],
-        [InlineKeyboardButton("Manual Input (VIP)", callback_data='6')],
-        [InlineKeyboardButton("Loop 2jt UB per detik (VIP)", callback_data='7')],
-        [InlineKeyboardButton("Stop Loop", callback_data='9')],
         [InlineKeyboardButton("Keluar", callback_data='8')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Pilih jumlah UB yang ingin diinject:", reply_markup=reply_markup)
 
-# Fungsi untuk menangani tombol inline
 async def button(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -95,38 +82,15 @@ async def button(update: Update, context: CallbackContext):
         rp_value, label = ub_values[query.data]
         result = add_rp(context.user_data.get('session_ticket', ''), rp_value, label)
         await query.edit_message_text(result)
-    elif query.data == "6":
-        await query.edit_message_text("Gunakan perintah /manual <jumlah> untuk input manual (VIP).")
-    elif query.data == "7":
-        # Menjalankan loop di thread terpisah
-        session_ticket = context.user_data.get('session_ticket', '')
-        if session_ticket:
-            stop_loop_event.clear()  # Reset event when starting the loop
-            threading.Thread(target=loop_2jt_per_detik, args=(session_ticket,)).start()
-            await query.edit_message_text("Loop 2jt UB per detik dimulai!")
-        else:
-            await query.edit_message_text("Anda belum login. Gunakan /login <device_id> untuk login terlebih dahulu.")
     elif query.data == "8":
-        await query.edit_message_text("Keluar dari program.")
-    elif query.data == "9":
-        stop_loop_event.set()  # Set the event to stop the loop
-        await query.edit_message_text("Loop 2jt UB per detik dihentikan!")
+        context.user_data.clear()  # Menghapus data login pengguna
+        await query.edit_message_text("Anda telah keluar. Silakan login kembali jika ingin menggunakan bot.")
     else:
         await query.edit_message_text("Pilihan tidak valid.")
 
-# Fungsi untuk loop 2jt UB per detik
-def loop_2jt_per_detik(session_ticket):
-    while not stop_loop_event.is_set():  # Use the event to stop the loop
-        result = add_rp(session_ticket, 2000000, "2jt UB")
-        print(result)
-        time.sleep(1)
-    print("Loop dihentikan.")
-
-# Fungsi perintah /start
 async def start(update: Update, context: CallbackContext):
     await update.message.reply_text("Selamat datang di BUSSID Inject Bot! Kirim /login <device_id> untuk login.")
 
-# Fungsi perintah /login
 async def login(update: Update, context: CallbackContext):
     args = update.message.text.split()[1:]
     if len(args) != 1:
@@ -142,23 +106,6 @@ async def login(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text("Login gagal. Coba lagi dengan Device ID yang benar.")
 
-# Fungsi perintah /manual untuk input jumlah UB secara manual
-async def manual_input(update: Update, context: CallbackContext):
-    # Memeriksa apakah ada argumen jumlah yang diberikan
-    args = update.message.text.split()[1:]
-    if len(args) != 1:
-        await update.message.reply_text("Gunakan format: /manual <jumlah>")
-        return
-
-    try:
-        # Mengambil jumlah dari input pengguna
-        amount = int(args[0])
-        result = add_rp(context.user_data.get('session_ticket', ''), amount, f"{amount} UB")
-        await update.message.reply_text(result)
-    except ValueError:
-        await update.message.reply_text("Jumlah yang dimasukkan tidak valid. Harap masukkan angka.")
-
-# Fungsi untuk mengatur key pengguna
 async def set_key(update: Update, context: CallbackContext):
     args = update.message.text.split()[1:]
     if len(args) != 1:
@@ -168,25 +115,22 @@ async def set_key(update: Update, context: CallbackContext):
     key = args[0]
     if validate_key(key):
         context.user_data['key_valid'] = True
-        await update.message.reply_text("Key valid! Sekarang Anda dapat mengakses menu Loop 2jt dan Manual Input.")
+        await update.message.reply_text("Key valid! Sekarang Anda dapat mengakses menu Inject UB.")
     else:
         context.user_data['key_valid'] = False
         await update.message.reply_text("Key tidak valid! Coba lagi dengan key yang benar.")
 
-# Fungsi perintah /help
 async def help_command(update: Update, context: CallbackContext):
     help_text = (
         "Berikut adalah perintah yang tersedia:\n"
         "/start - Memulai bot\n"
         "/login <device_id> - Untuk login dengan Device ID\n"
         "/menu - Menampilkan menu inject UB\n"
-        "/manual <jumlah> - Untuk input jumlah UB secara manual\n"
-        "/key <key> - Masukkan key yang valid untuk mengakses menu Loop 2jt dan Manual Input\n"
+        "/key <key> - Masukkan key yang valid untuk mengakses menu Inject UB\n"
         "/help - Menampilkan bantuan ini"
     )
     await update.message.reply_text(help_text)
 
-# Flask untuk Health Check
 flask_app = Flask(__name__)
 
 @flask_app.route("/")
@@ -202,15 +146,13 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("login", login))
     app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CommandHandler("manual", manual_input))  # Handler manual
-    app.add_handler(CommandHandler("key", set_key))  # Handler key
-    app.add_handler(CommandHandler("help", help_command))  # Handler help
+    app.add_handler(CommandHandler("key", set_key))
+    app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CallbackQueryHandler(button))
     
     print("Bot is running...")
     app.run_polling()
 
-# Menjalankan Flask untuk Health Check
 if __name__ == "__main__":
     Thread(target=run_flask).start()
     main()
