@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Call
 import requests
 import json
 
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+TOKEN = "8195321637:AAEQEZPwf25f6LLRm0zA3GX6jjmTVWePvKs"
 stop_loop_event = threading.Event()
 
 def validate_key(key):
