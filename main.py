@@ -8,7 +8,7 @@ import requests
 import json
 import os
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8195321637:AAEQEZPwf25f6LLRm0zA3GX6jjmTVWePvKs"
 
 stop_loop_event = threading.Event()
 
