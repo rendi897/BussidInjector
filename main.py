@@ -44,9 +44,13 @@ async def add_rp(update: Update, context: CallbackContext, value: int):
     session_ticket = context.user_data['session_ticket']
     url = "https://4ae9.playfabapi.com/Client/ExecuteCloudScript"
     payload = {
+        "CustomTags": None,
         "FunctionName": "AddRp",
         "FunctionParameter": {"addValue": value},
-        "GeneratePlayStreamEvent": False
+        "GeneratePlayStreamEvent": False,
+        "RevisionSelection": "Live",
+        "SpecificRevision": None,
+        "AuthenticationContext": None
     }
     headers = {
         'Content-Type': "application/json",
@@ -65,12 +69,9 @@ async def menu(update: Update, context: CallbackContext):
         return
     
     keyboard = [
-        [InlineKeyboardButton("500k UB", callback_data='500000')],
-        [InlineKeyboardButton("800k UB", callback_data='800000')],
-        [InlineKeyboardButton("1jt UB", callback_data='1000000')],
-        [InlineKeyboardButton("Kurangi 50jt UB", callback_data='-50000000')],
-        [InlineKeyboardButton("Kurangi 200jt UB", callback_data='-200000000')],
-        [InlineKeyboardButton("Manual Input (VIP)", callback_data='manual')],
+        [InlineKeyboardButton("500k UB", callback_data='500000'), InlineKeyboardButton("800k UB", callback_data='800000')],
+        [InlineKeyboardButton("1jt UB", callback_data='1000000'), InlineKeyboardButton("Kurangi 50jt UB", callback_data='-50000000')],
+        [InlineKeyboardButton("Kurangi 200jt UB", callback_data='-200000000'), InlineKeyboardButton("Manual Input (VIP)", callback_data='manual')],
         [InlineKeyboardButton("Keluar", callback_data='exit')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -81,8 +82,8 @@ async def button(update: Update, context: CallbackContext):
     await query.answer()
     
     if query.data == "manual":
-        await query.edit_message_text("Masukkan jumlah UB yang diinginkan (hanya angka):")
-        context.user_data['awaiting_manual_input'] = True  # Set status manual input
+        await query.edit_message_text("Masukkan jumlah UB yang diinginkan:")
+        context.user_data['awaiting_manual_input'] = True
     elif query.data == "exit":
         context.user_data.clear()
         await query.edit_message_text("Anda telah keluar. Silakan login kembali jika ingin menggunakan bot.")
@@ -92,15 +93,13 @@ async def button(update: Update, context: CallbackContext):
 
 async def manual_input_handler(update: Update, context: CallbackContext):
     if context.user_data.get('awaiting_manual_input'):
-        user_input = update.message.text
-
-        if not user_input.isdigit():  # Pastikan hanya angka
-            await update.message.reply_text("Jumlah harus berupa angka! Silakan coba lagi.")
-            return
-        
-        value = int(user_input)
-        await add_rp(update, context, value)
-        context.user_data['awaiting_manual_input'] = False  # Reset status setelah berhasil
+        try:
+            value = int(update.message.text)
+            await add_rp(update, context, value)
+        except ValueError:
+            await update.message.reply_text("Jumlah harus berupa angka!")
+        finally:
+            context.user_data['awaiting_manual_input'] = False
 
 flask_app = Flask(__name__)
 
@@ -118,8 +117,8 @@ def main():
     app.add_handler(CommandHandler("login", login_with_device))
     app.add_handler(CommandHandler("menu", menu))
     app.add_handler(CallbackQueryHandler(button))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_device_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manual_input_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_device_id))
     
     print("Bot is running...")
     app.run_polling()
