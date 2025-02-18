@@ -120,8 +120,8 @@ def main():
     app.add_handler(CommandHandler("login", login_with_device))
     app.add_handler(CommandHandler("menu", menu))
     app.add_handler(CallbackQueryHandler(button))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manual_input_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_device_id))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manual_input_handler))
     
     print("Bot is running...")
     app.run_polling()
