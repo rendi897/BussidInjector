@@ -17,9 +17,6 @@ async def login_with_device(update: Update, context: CallbackContext):
 async def process_device_id(update: Update, context: CallbackContext):
     if context.user_data.get('awaiting_device_id'):
         device_id = update.message.text
-        if not device_id.isdigit():
-            await update.message.reply_text("Device ID hanya boleh berisi angka!")
-            return
         
         url = "https://4ae9.playfabapi.com/Client/LoginWithAndroidDeviceID"
         payload = {
