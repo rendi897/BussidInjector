@@ -17,6 +17,10 @@ async def login_with_device(update: Update, context: CallbackContext):
 async def process_device_id(update: Update, context: CallbackContext):
     if context.user_data.get('awaiting_device_id'):
         device_id = update.message.text
+        if not device_id.isdigit():
+            await update.message.reply_text("Device ID hanya boleh berisi angka!")
+            return
+        
         url = "https://4ae9.playfabapi.com/Client/LoginWithAndroidDeviceID"
         payload = {
             "AndroidDevice": "AndroidPhone",
@@ -68,12 +72,17 @@ async def menu(update: Update, context: CallbackContext):
         await update.message.reply_text("Anda harus login terlebih dahulu. Gunakan /login")
         return
     
-    keyboard = [
-        [InlineKeyboardButton("500k UB", callback_data='500000'), InlineKeyboardButton("800k UB", callback_data='800000')],
-        [InlineKeyboardButton("1jt UB", callback_data='1000000'), InlineKeyboardButton("Kurangi 50jt UB", callback_data='-50000000')],
-        [InlineKeyboardButton("Kurangi 200jt UB", callback_data='-200000000'), InlineKeyboardButton("Manual Input (VIP)", callback_data='manual')],
-        [InlineKeyboardButton("Keluar", callback_data='exit')]
-    ]
+    keyboard = [[
+        InlineKeyboardButton("500k UB", callback_data='500000'),
+        InlineKeyboardButton("800k UB", callback_data='800000'),
+        InlineKeyboardButton("1jt UB", callback_data='1000000')
+    ], [
+        InlineKeyboardButton("Kurangi 50jt UB", callback_data='-50000000'),
+        InlineKeyboardButton("Kurangi 200jt UB", callback_data='-200000000')
+    ], [
+        InlineKeyboardButton("Manual Input (VIP)", callback_data='manual'),
+        InlineKeyboardButton("Keluar", callback_data='exit')
+    ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Pilih jumlah UB yang ingin diinject:", reply_markup=reply_markup)
 
@@ -117,8 +126,8 @@ def main():
     app.add_handler(CommandHandler("login", login_with_device))
     app.add_handler(CommandHandler("menu", menu))
     app.add_handler(CallbackQueryHandler(button))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manual_input_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_device_id))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manual_input_handler))
     
     print("Bot is running...")
     app.run_polling()
