@@ -44,13 +44,9 @@ async def add_rp(update: Update, context: CallbackContext, value: int):
     session_ticket = context.user_data['session_ticket']
     url = "https://4ae9.playfabapi.com/Client/ExecuteCloudScript"
     payload = {
-        "CustomTags": None,
         "FunctionName": "AddRp",
         "FunctionParameter": {"addValue": value},
-        "GeneratePlayStreamEvent": False,
-        "RevisionSelection": "Live",
-        "SpecificRevision": None,
-        "AuthenticationContext": None
+        "GeneratePlayStreamEvent": False
     }
     headers = {
         'Content-Type': "application/json",
@@ -85,8 +81,8 @@ async def button(update: Update, context: CallbackContext):
     await query.answer()
     
     if query.data == "manual":
-        await query.edit_message_text("Masukkan jumlah UB yang diinginkan:")
-        context.user_data['awaiting_manual_input'] = True
+        await query.edit_message_text("Masukkan jumlah UB yang diinginkan (hanya angka):")
+        context.user_data['awaiting_manual_input'] = True  # Set status manual input
     elif query.data == "exit":
         context.user_data.clear()
         await query.edit_message_text("Anda telah keluar. Silakan login kembali jika ingin menggunakan bot.")
@@ -96,13 +92,15 @@ async def button(update: Update, context: CallbackContext):
 
 async def manual_input_handler(update: Update, context: CallbackContext):
     if context.user_data.get('awaiting_manual_input'):
-        try:
-            value = int(update.message.text)
-            await add_rp(update, context, value)
-        except ValueError:
-            await update.message.reply_text("Jumlah harus berupa angka!")
-        finally:
-            context.user_data['awaiting_manual_input'] = False
+        user_input = update.message.text
+
+        if not user_input.isdigit():  # Pastikan hanya angka
+            await update.message.reply_text("Jumlah harus berupa angka! Silakan coba lagi.")
+            return
+        
+        value = int(user_input)
+        await add_rp(update, context, value)
+        context.user_data['awaiting_manual_input'] = False  # Reset status setelah berhasil
 
 flask_app = Flask(__name__)
 
@@ -122,10 +120,10 @@ def main():
     app.add_handler(CallbackQueryHandler(button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_device_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manual_input_handler))
+    
     print("Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
     Thread(target=run_flask, daemon=True).start()
     main()
-    
