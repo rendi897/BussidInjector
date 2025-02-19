@@ -1,0 +1,15 @@
+{
+  "name": "bot-security",
+  "version": "1.0.0",
+  "description": "Bot keamanan grup Telegram",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "deploy": "./deploy.sh"
+  },
+  "dependencies": {
+    "telegraf": "^4.7.0",
+    "fs": "^0.0.1-security",
+    "dotenv": "^16.3.1"
+  }
+}
